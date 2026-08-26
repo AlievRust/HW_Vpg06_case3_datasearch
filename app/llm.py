@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import base64
+import logging
 from typing import Any, Sequence
 
 from openai import OpenAI
 
 from app.config import Settings
+
+LOGGER = logging.getLogger(__name__)
 
 
 class YandexClient:
@@ -46,19 +49,45 @@ class YandexClient:
         raise RuntimeError("YandexGPT вернул пустой ответ")
 
     def embed_documents(self, texts: Sequence[str]) -> list[list[float]]:
+        """Строит document-векторы через Yandex в формате обычных float.
+
+        Yandex AI Studio не принимает base64-формат embedding-ответа. Кроме
+        того, для совместимости с legacy-клиентом каждый текст отправляется
+        отдельным запросом как строковый ``input``, а не как массив token IDs.
+        """
+
         if not texts:
             return []
-        response = self.client.embeddings.create(
-            model=self.settings.yandex_embedding_model,
-            input=list(texts),
-        )
-        return [list(item.embedding) for item in response.data]
+        vectors: list[list[float]] = []
+        for text in texts:
+            LOGGER.info(
+                "EMBEDDING_REQUEST kind=document model=%s text_len=%s",
+                self.settings.yandex_embedding_model,
+                len(text),
+            )
+            response = self.client.embeddings.create(
+                model=self.settings.yandex_embedding_model,
+                input=text,
+                encoding_format="float",
+            )
+            vectors.append(list(response.data[0].embedding))
+        LOGGER.info("EMBEDDING_RESULT kind=document vectors=%s", len(vectors))
+        return vectors
 
     def embed_query(self, text: str) -> list[float]:
+        """Строит query-вектор в совместимом с Yandex float-формате."""
+
+        LOGGER.info(
+            "EMBEDDING_REQUEST kind=query model=%s text_len=%s",
+            self.settings.yandex_query_embedding_model,
+            len(text),
+        )
         response = self.client.embeddings.create(
             model=self.settings.yandex_query_embedding_model,
-            input=[text],
+            input=text,
+            encoding_format="float",
         )
+        LOGGER.info("EMBEDDING_RESULT kind=query vectors=1")
         return list(response.data[0].embedding)
 
     def describe_image(self, image_bytes: bytes, mime_type: str = "image/jpeg") -> str:
@@ -89,4 +118,3 @@ class YandexClient:
         if isinstance(content, str) and content.strip():
             return content.strip()
         raise RuntimeError("Yandex VLM вернула пустое описание")
-

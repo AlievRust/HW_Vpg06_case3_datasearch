@@ -28,3 +28,30 @@ def test_document_summary_is_one_sentence() -> None:
         {"generate": lambda self, prompt, **kwargs: "Первое предложение. Второе предложение."},
     )()
     assert service.summarize("file.txt", "content") == "Первое предложение."
+
+
+def test_yandex_embeddings_request_float_string_payload() -> None:
+    from types import SimpleNamespace
+
+    from app.llm import YandexClient
+
+    calls = []
+
+    class FakeEmbeddings:
+        def create(self, **kwargs):
+            calls.append(kwargs)
+            return SimpleNamespace(data=[SimpleNamespace(embedding=[0.1, 0.2])])
+
+    client = object.__new__(YandexClient)
+    client.settings = SimpleNamespace(
+        yandex_embedding_model="emb://folder/text-search-doc/latest",
+        yandex_query_embedding_model="emb://folder/text-search-query/latest",
+    )
+    client.client = SimpleNamespace(embeddings=FakeEmbeddings())
+
+    assert client.embed_documents(["document"])[0] == [0.1, 0.2]
+    assert client.embed_query("query") == [0.1, 0.2]
+    assert calls[0]["input"] == "document"
+    assert calls[0]["encoding_format"] == "float"
+    assert calls[1]["input"] == "query"
+    assert calls[1]["encoding_format"] == "float"
