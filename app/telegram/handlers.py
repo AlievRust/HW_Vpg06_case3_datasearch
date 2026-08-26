@@ -178,14 +178,18 @@ def build_router(context: HandlerContext) -> Router:
                 context.assistant.answer, str(message.from_user.id), user_text
             )
             if dog:
+                caption = dog.description
+                if len(caption) > 1024:
+                    caption = caption[:1021].rstrip() + "..."
                 await message.answer_photo(
                     BufferedInputFile(dog.image_bytes, filename="dog.jpg"),
-                    caption=dog.description,
+                    caption=caption,
                 )
+                LOGGER.info("TELEGRAM_DOG_RESPONSE user_id=%s mode=photo_only", message.from_user.id)
+                return
             await message.answer(response)
         except Exception:
             LOGGER.exception("Ошибка обработки сообщения user_id=%s", message.from_user.id)
             await message.answer("Извините, при обработке сообщения произошла ошибка.")
 
     return router
-
