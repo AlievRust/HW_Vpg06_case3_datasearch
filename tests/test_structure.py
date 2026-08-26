@@ -55,3 +55,13 @@ def test_yandex_embeddings_request_float_string_payload() -> None:
     assert calls[0]["encoding_format"] == "float"
     assert calls[1]["input"] == "query"
     assert calls[1]["encoding_format"] == "float"
+
+
+def test_haystack_text_content_is_not_rendered_as_object_repr() -> None:
+    from types import SimpleNamespace
+
+    from app.assistant import _message_text
+
+    text_content = SimpleNamespace(text="Привет! Я ассистент.")
+    message = SimpleNamespace(content=[text_content])
+    assert _message_text(message) == "Привет! Я ассистент."

@@ -52,18 +52,32 @@ def _logged_tool(name: str, function: Callable[..., Any]) -> Callable[..., Any]:
     return wrapped
 
 
+def _content_part_text(part: Any) -> str:
+    """Извлекает текст из строки, словаря или Haystack TextContent."""
+
+    if isinstance(part, str):
+        return part
+    if isinstance(part, dict):
+        return str(part.get("text", ""))
+    text = getattr(part, "text", None)
+    return text if isinstance(text, str) else ""
+
+
 def _message_text(message: Any) -> str:
-    """Извлекает обычный текст из финального сообщения Haystack."""
+    """Извлекает только пользовательский текст из финального сообщения Haystack.
+
+    В Haystack 2 итоговый ``ChatMessage.content`` часто является списком
+    объектов ``TextContent``. Важно читать их поле ``text``: вызов ``str()``
+    над объектом возвращает технический repr, который нельзя отправлять в
+    Telegram и нельзя сохранять в историю диалога.
+    """
 
     content = getattr(message, "content", message)
     if isinstance(content, str):
         return content.strip()
     if isinstance(content, list):
-        return "".join(
-            str(item.get("text", item)) if isinstance(item, dict) else str(item)
-            for item in content
-        ).strip()
-    return str(content).strip()
+        return "".join(_content_part_text(item) for item in content).strip()
+    return _content_part_text(content).strip()
 
 
 class AssistantService:
@@ -257,4 +271,3 @@ class AssistantService:
         deleted = self.memory.clear_user(str(user_id)) + self.dialogue.clear_user(str(user_id))
         LOGGER.info("USER_DATA_CLEARED user_id=%s records=%s", user_id, deleted)
         return deleted
-
