@@ -65,3 +65,33 @@ def test_haystack_text_content_is_not_rendered_as_object_repr() -> None:
     text_content = SimpleNamespace(text="Привет! Я ассистент.")
     message = SimpleNamespace(content=[text_content])
     assert _message_text(message) == "Привет! Я ассистент."
+
+
+def test_vlm_request_disables_reasoning_and_reads_text_block() -> None:
+    from types import SimpleNamespace
+
+    from app.llm import YandexClient
+
+    calls = []
+
+    class FakeCompletions:
+        def create(self, **kwargs):
+            calls.append(kwargs)
+            return SimpleNamespace(
+                choices=[
+                    SimpleNamespace(
+                        message=SimpleNamespace(content=[SimpleNamespace(text="Описание собаки.")])
+                    )
+                ]
+            )
+
+    client = object.__new__(YandexClient)
+    client.settings = SimpleNamespace(
+        yandex_vision_model="gpt://folder/vision",
+        yandex_vision_reasoning_effort="none",
+    )
+    client.client = SimpleNamespace(chat=SimpleNamespace(completions=FakeCompletions()))
+
+    assert client.describe_image(b"image") == "Описание собаки."
+    assert calls[0]["reasoning_effort"] == "none"
+    assert calls[0]["max_tokens"] == 700

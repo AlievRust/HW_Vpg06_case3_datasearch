@@ -112,9 +112,19 @@ class YandexClient:
                     ],
                 }
             ],
-            max_tokens=500,
+            temperature=0.3,
+            # Для описания изображения глубокое рассуждение не требуется.
+            # Иначе модель может потратить весь лимит на reasoning_content,
+            # оставив обычное message.content пустым.
+            reasoning_effort=self.settings.yandex_vision_reasoning_effort,
+            max_tokens=700,
         )
         content = response.choices[0].message.content
+        if isinstance(content, list):
+            content = "".join(
+                block.get("text", "") if isinstance(block, dict) else getattr(block, "text", "")
+                for block in content
+            )
         if isinstance(content, str) and content.strip():
             return content.strip()
         raise RuntimeError("Yandex VLM вернула пустое описание")

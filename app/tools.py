@@ -107,11 +107,20 @@ class DogService:
                 image_response.raise_for_status()
                 image_bytes = image_response.content
                 mime_type = image_response.headers.get("content-type", "image/jpeg").split(";", 1)[0]
-            description = self.vision.describe_image(image_bytes, mime_type)
+            try:
+                description = self.vision.describe_image(image_bytes, mime_type)
+            except Exception as exc:
+                # Фото уже успешно скачано. Даже если VLM временно не вернула
+                # текст, не теряем основной результат инструмента и всё равно
+                # отдаём оригинальное изображение Telegram-обработчику.
+                LOGGER.warning("DOG_VLM_ERROR image_url=%s error=%s", image_url, exc)
+                description = (
+                    "Картинка получена, но описание сейчас недоступно. "
+                    "Попробуйте повторить запрос позже."
+                )
             self.last_result = DogResult(image_bytes=image_bytes, description=description)
             LOGGER.info("DOG_RESULT status=ok image_bytes=%s", len(image_bytes))
             return {"image_url": image_url, "description": description}
         except (httpx.HTTPError, KeyError, TypeError, ValueError, RuntimeError) as exc:
             LOGGER.warning("DOG_ERROR error=%s", exc)
             return {"error": "Не удалось получить и описать фотографию собаки."}
-

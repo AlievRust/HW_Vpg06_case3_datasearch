@@ -31,6 +31,7 @@ class Settings:
     yandex_embedding_model: str
     yandex_query_embedding_model: str
     yandex_vision_model: str
+    yandex_vision_reasoning_effort: str
     chroma_directory: Path
     memory_collection: str
     dialogue_collection: str
@@ -89,6 +90,7 @@ class Settings:
             yandex_embedding_model=embedding_model,
             yandex_query_embedding_model=query_embedding_model,
             yandex_vision_model=vision_model,
+            yandex_vision_reasoning_effort=os.getenv("YANDEX_VISION_REASONING_EFFORT", "none"),
             chroma_directory=Path(directory),
             memory_collection=os.getenv("CHROMA_COLLECTION", "assistant_memory"),
             dialogue_collection=os.getenv("CHROMA_DIALOGUE_COLLECTION", "assistant_dialogue"),
